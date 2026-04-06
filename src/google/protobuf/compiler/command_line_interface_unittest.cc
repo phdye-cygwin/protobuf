@@ -4666,10 +4666,6 @@ TEST_F(CommandLineInterfaceTest, PrintFreeFieldNumbers) {
 
   ExpectNoErrors();
 
-  // TODO: Cygwin doesn't work well if we try to capture stderr and
-  // stdout at the same time. Need to figure out why and add this test back
-  // for Cygwin.
-#if !defined(__CYGWIN__)
   ExpectCapturedStdout(
       "foo.Foo                             free: 1 3 6-7 9 11-INF\n"
       "Bar                                 free: 1 3 6-7 9 11-INF\n"
@@ -4680,7 +4676,6 @@ TEST_F(CommandLineInterfaceTest, PrintFreeFieldNumbers) {
       "Quz.E.G                             free: 1-INF\n"
       "Quz.E                               free: 1-8 10-14 16-INF\n"
       "Quz                                 free: 1 3 5-7 12-INF\n");
-#endif
 }
 
 TEST_F(CommandLineInterfaceTest, TargetTypeEnforcement) {
