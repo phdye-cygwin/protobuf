@@ -107,7 +107,20 @@ See https://github.com/Microsoft/vcpkg for more information.
 
 To build from source using Microsoft Visual C++, see [cmake/README.md](../cmake/README.md).
 
-To build from source using Cygwin or MinGW, follow the Unix installation
+To build from source using Cygwin, use CMake with fetched dependencies
+(the system Abseil package is not compatible):
+
+    $ mkdir build && cd build
+    $ cmake .. -DCMAKE_CXX_STANDARD=17 \
+          -Dprotobuf_FORCE_FETCH_DEPENDENCIES=ON \
+          -DCMAKE_CXX_FLAGS="-D_GLIBCXX_USE_CXX11_ABI=1"
+    $ cmake --build . --parallel $(nproc)
+
+Note: upstream Abseil does not support Cygwin. The fetched Abseil source
+requires patches for `policy_checks.h`, `sysinfo.cc`, `config.h`, and
+`attributes.h`. See the project's Cygwin build documentation for details.
+
+To build from source using MinGW, follow the Unix installation
 instructions, above.
 
 Binary Compatibility Warning
