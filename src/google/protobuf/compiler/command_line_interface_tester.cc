@@ -70,20 +70,13 @@ void CommandLineInterfaceTester::RunProtocWithArgs(
     argv[i] = args[i].c_str();
   }
 
-  // TODO: Cygwin doesn't work well if we try to capture stderr and
-  // stdout at the same time. Need to figure out why and add this capture back
-  // for Cygwin.
-#if !defined(__CYGWIN__)
   CaptureTestStdout();
-#endif
   CaptureTestStderr();
 
   return_code_ = cli_.Run(static_cast<int>(args.size()), argv.data());
 
   captured_stderr_ = GetCapturedTestStderr();
-#if !defined(__CYGWIN__)
   captured_stdout_ = GetCapturedTestStdout();
-#endif
 }
 
 void CommandLineInterfaceTester::RunProtocAndExpectDeath(

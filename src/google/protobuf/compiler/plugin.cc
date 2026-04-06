@@ -14,9 +14,10 @@
 #include <utility>
 #include <vector>
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
 #include <fcntl.h>
-#else
+#endif
+#ifndef _WIN32
 #include <unistd.h>
 #endif
 
@@ -42,6 +43,8 @@ namespace compiler {
 // DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
 // them like we do below.
 using google::protobuf::io::win32::setmode;
+#elif defined(__CYGWIN__)
+#include <io.h>
 #endif
 
 class GeneratorResponseContext : public GeneratorContext {
@@ -165,9 +168,12 @@ int PluginMain(int argc, char* argv[], const CodeGenerator* generator) {
     return 1;
   }
 
-#ifdef _WIN32
+#if defined(_WIN32)
   setmode(STDIN_FILENO, _O_BINARY);
   setmode(STDOUT_FILENO, _O_BINARY);
+#elif defined(__CYGWIN__)
+  setmode(STDIN_FILENO, O_BINARY);
+  setmode(STDOUT_FILENO, O_BINARY);
 #endif
 
   CodeGeneratorRequest request;
