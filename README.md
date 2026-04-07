@@ -5,6 +5,75 @@ Protocol Buffers - Google's data interchange format
 
 Copyright 2008 Google LLC
 
+## Cygwin Port (`cygwin/update-port` branch)
+
+This branch adds Cygwin support to Protocol Buffers 7.35.0-dev.
+
+Protobuf does not officially support Cygwin. The three patches here are minimal fixes for PE/COFF platform differences -- weak symbol semantics and text-mode I/O -- that prevent protoc and the C++ runtime from functioning. They are intended as a stopgap until upstream support exists.
+
+### Prerequisites
+
+- GCC 13+, CMake 3.16+, Cygwin x86_64
+- **Abseil LTS 20250512.1 for Cygwin** must be installed first. Protobuf's CMake build fetches Abseil from GitHub by default; the upstream source won't compile on Cygwin. Use the pre-built release or build from source:
+  - Release: <https://github.com/phdye-cygwin/abseil-cpp/releases/tag/20250512.1-cygwin>
+  - Source: <https://github.com/phdye-cygwin/abseil-cpp/tree/cygwin/support>
+
+### Building on Cygwin
+
+```bash
+mkdir build && cd build
+cmake ~/repo/protobuf \
+  -DCMAKE_PREFIX_PATH=/usr/local \
+  -DCMAKE_CXX_STANDARD=17 \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_FLAGS="-D_GLIBCXX_USE_CXX11_ABI=1 -DGTEST_HAS_PTHREAD=1" \
+  -Dprotobuf_ABSL_PROVIDER=package
+cmake --build . --parallel 8
+```
+
+The key flag is `-Dprotobuf_ABSL_PROVIDER=package`, which tells CMake to use the installed Abseil rather than fetching one. `-DCMAKE_PREFIX_PATH=/usr/local` points `find_package(absl)` at the Cygwin Abseil install.
+
+Both `-D` flags in `CMAKE_CXX_FLAGS` must match the Abseil build:
+
+- **`_GLIBCXX_USE_CXX11_ABI=1`** -- Cygwin's libstdc++ defaults to the old COW string ABI (`sizeof(std::string)` = 8). Protobuf requires the SSO ABI (`sizeof(std::string)` = 32).
+- **`GTEST_HAS_PTHREAD=1`** -- googletest omits Cygwin from its pthread platform list, causing `Mutex` layout mismatches in test binaries. Only needed when building tests (`-Dprotobuf_BUILD_TESTS=ON`).
+
+### Building with a custom prefix
+
+```bash
+cmake --install . --prefix /path/to/prefix
+```
+
+### Patch summary
+
+| File | Purpose |
+|------|---------|
+| `src/google/protobuf/port_def.inc` | Disable `PROTOBUF_ATTRIBUTE_WEAK` on Cygwin -- PE/COFF weak symbols collapse all definitions into one, breaking per-type vtable dispatch |
+| `src/google/protobuf/compiler/plugin.cc` | Set binary mode on plugin stdin/stdout -- Cygwin defaults to text mode, corrupting protobuf wire data with `\r\n` translation |
+| `src/google/protobuf/compiler/command_line_interface_tester.cc` | Remove stale `#if !defined(__CYGWIN__)` guards around stdout capture |
+| `src/google/protobuf/compiler/command_line_interface_unittest.cc` | Remove stale `#if !defined(__CYGWIN__)` guard in `PrintFreeFieldNumbers` test |
+| `src/README.md` | Cygwin build instructions |
+
+### Upstream dependency
+
+Protobuf cannot build on Cygwin without the patched Abseil:
+
+- Repo: <https://github.com/phdye-cygwin/abseil-cpp>
+- Branch: `cygwin/support`
+- Tag: `20250512.1-cygwin`
+
+### Known limitations
+
+- **UPB plugin tests**: `protoc-gen-upb` occasionally crashes (SIGSEGV) when invoked by protoc during certain test scenarios. The protoc compiler and C++ runtime are unaffected.
+- **Subprocess tests**: A small number of tests that fork/exec child processes may hang on Cygwin and require timeout enforcement.
+- **Bazel**: Only CMake is supported. Bazel on Cygwin is not tested.
+
+### Test results
+
+The existing protobuf test suite (745 tests in the CMake build) passes on Cygwin.
+
+---
+
 Overview
 --------
 
