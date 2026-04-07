@@ -219,6 +219,41 @@ TEST(WireFormatTest, CppTypeForWorksForAllSupportedTypes) {
 }
 
 
+// Verify that serialized protobuf data survives a binary file round-trip
+// without corruption. On platforms that default to text-mode I/O (Cygwin,
+// Windows), LF bytes (0x0a) in wire data can be silently expanded to
+// CR+LF (0x0d 0x0a) if files are opened without binary flags.
+TEST(WireFormatTest, BinaryFileRoundTripPreservesBytes) {
+  proto2_unittest::TestAllTypes msg;
+  msg.set_optional_int32(42);
+  // Field tag 14 (optional_string) is 0x72 = (14 << 3 | 2).
+  // The length prefix is 0x05. The content includes a literal LF.
+  msg.set_optional_string("AB\nCD");
+  // Bytes field with every problematic control character.
+  msg.set_optional_bytes(std::string("\x0a\x0d\x0d\x0a\x00\xff", 6));
+
+  std::string wire;
+  ASSERT_TRUE(msg.SerializeToString(&wire));
+
+  // Write to a temp file in binary mode, read back, compare.
+  std::string tmpfile = testing::TempDir() + "/wire_roundtrip.bin";
+  {
+    FILE* f = fopen(tmpfile.c_str(), "wb");
+    ASSERT_NE(f, nullptr) << "Failed to open temp file for writing";
+    ASSERT_EQ(fwrite(wire.data(), 1, wire.size(), f), wire.size());
+    fclose(f);
+  }
+  {
+    FILE* f = fopen(tmpfile.c_str(), "rb");
+    ASSERT_NE(f, nullptr) << "Failed to open temp file for reading";
+    std::string readback(wire.size(), '\0');
+    ASSERT_EQ(fread(&readback[0], 1, wire.size(), f), wire.size());
+    fclose(f);
+    EXPECT_EQ(readback, wire) << "Binary file round-trip corrupted wire data";
+  }
+  remove(tmpfile.c_str());
+}
+
 }  // namespace
 }  // namespace internal
 }  // namespace protobuf

@@ -19,6 +19,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/compiler/parser.h"
+#include "google/protobuf/compiler/plugin.pb.h"
 #include "editions/edition_defaults_test_utils.h"
 #include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/io/zero_copy_stream_impl_lite.h"
@@ -544,6 +545,43 @@ TEST_F(CodeGeneratorTest, SupportedEditionRangeIsDense) {
        i <= static_cast<int>(ProtocMaximumEdition()); ++i) {
     EXPECT_TRUE(Edition_IsValid(i));
   }
+}
+
+// Verify that a serialized CodeGeneratorRequest contains LF bytes (0x0a)
+// that would be corrupted by text-mode I/O. This is the exact failure mode
+// on platforms where stdin/stdout default to text mode (Cygwin, Windows):
+// the protoc plugin protocol sends binary protobuf over pipes, and text
+// mode silently inserts CR before every LF.
+TEST(PluginProtocolTest, PluginRequestWireDataContainsLF) {
+  CodeGeneratorRequest request;
+  request.add_file_to_generate("test.proto");
+  request.set_parameter("option=value");
+  auto* fd = request.add_proto_file();
+  fd->set_name("test.proto");
+  fd->set_package("test");
+
+  std::string wire;
+  ASSERT_TRUE(request.SerializeToString(&wire));
+
+  // 0x0a is the wire format for field 1 (length-delimited string).
+  // Any CodeGeneratorRequest with file_to_generate set will contain this.
+  bool has_lf = false;
+  for (char c : wire) {
+    if (c == '\n') {
+      has_lf = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_lf)
+      << "Serialized CodeGeneratorRequest should contain 0x0a (LF) bytes; "
+         "text-mode I/O would corrupt these with CR insertion";
+
+  // Round-trip must preserve all bytes exactly.
+  CodeGeneratorRequest parsed;
+  ASSERT_TRUE(parsed.ParseFromString(wire));
+  EXPECT_EQ(parsed.file_to_generate(0), "test.proto");
+  EXPECT_EQ(parsed.parameter(), "option=value");
+  EXPECT_EQ(parsed.proto_file(0).name(), "test.proto");
 }
 
 #include "google/protobuf/port_undef.inc"
