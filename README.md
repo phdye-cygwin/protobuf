@@ -7,7 +7,7 @@ Copyright 2008 Google LLC
 
 ## Cygwin Port (`cygwin/update-port` branch)
 
-This branch adds Cygwin support to Protocol Buffers 7.35.0-dev.
+This branch tracks `main` (pre-release, currently 7.35.0-dev). For a stable port based on a released version, use the [`cygwin/v34.1`](../../tree/cygwin/v34.1) branch instead.
 
 Protobuf does not officially support Cygwin. The three patches here are minimal fixes for PE/COFF platform differences -- weak symbol semantics and text-mode I/O -- that prevent protoc and the C++ runtime from functioning. They are intended as a stopgap until upstream support exists.
 
