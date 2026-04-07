@@ -15904,6 +15904,39 @@ TEST(DescriptorTableExternLinkageTest, DescriptorTableExternLinkageTest) {
 }
 
 
+// Verify that distinct generated message types return distinct Descriptor
+// pointers through virtual dispatch. On PE/COFF platforms (Cygwin, MinGW),
+// weak symbol misuse can collapse virtual function overrides, causing all
+// types to share one Descriptor. This catches that class of linker bug.
+TEST(DescriptorMiscTest, DistinctTypesHaveDistinctDescriptors) {
+  FileDescriptorProto fdp;
+  DescriptorProto dp;
+  FieldDescriptorProto field_dp;
+  EnumDescriptorProto edp;
+  SourceCodeInfo sci;
+  ServiceDescriptorProto sdp;
+  MethodDescriptorProto mdp;
+  OneofDescriptorProto odp;
+
+  const Descriptor* descs[] = {
+      fdp.GetDescriptor(),     dp.GetDescriptor(),
+      field_dp.GetDescriptor(), edp.GetDescriptor(),
+      sci.GetDescriptor(),     sdp.GetDescriptor(),
+      mdp.GetDescriptor(),     odp.GetDescriptor(),
+  };
+
+  // Every pair must be distinct.
+  for (int i = 0; i < 8; ++i) {
+    ASSERT_NE(descs[i], nullptr) << "Null descriptor at index " << i;
+    for (int j = i + 1; j < 8; ++j) {
+      EXPECT_NE(descs[i], descs[j])
+          << "Descriptor collision: " << descs[i]->full_name()
+          << " and " << descs[j]->full_name()
+          << " share the same Descriptor pointer";
+    }
+  }
+}
+
 }  // namespace descriptor_unittest
 }  // namespace protobuf
 }  // namespace google
