@@ -371,7 +371,13 @@ Error, UINTPTR_MAX is undefined
 // Android uses a custom libc that does not implement all of posix, but it has
 // had sigsetjmp/siglongjmp forever on arm and since API 12 on x86. Apple has
 // sigsetjmp, but does not define the posix feature test macro.
-#if defined(__APPLE__) || defined(_POSIX_C_SOURCE) || defined(__ANDROID__)
+#if defined(__CYGWIN__)
+// Cygwin's sigjmp_buf is larger than jmp_buf (34 vs 32 longs).  UPB stores
+// jmp_buf in structs (upb_ErrorHandler, upb_MdDecoder) but the sigsetjmp path
+// writes sigjmp_buf-sized data, overflowing the buffer.  Use plain setjmp.
+#define UPB_SETJMP(buf) setjmp(buf)
+#define UPB_LONGJMP(buf, val) longjmp(buf, val)
+#elif defined(__APPLE__) || defined(_POSIX_C_SOURCE) || defined(__ANDROID__)
 // avoid setting/restoring signal mask, which involves costly syscalls
 #define UPB_SETJMP(buf) sigsetjmp(buf, 0)
 #define UPB_LONGJMP(buf, val) siglongjmp(buf, val)

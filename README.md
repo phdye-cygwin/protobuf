@@ -53,6 +53,7 @@ cmake --install . --prefix /path/to/prefix
 | `src/google/protobuf/compiler/plugin.cc` | Set binary mode on plugin stdin/stdout -- Cygwin defaults to text mode, corrupting protobuf wire data with `\r\n` translation |
 | `src/google/protobuf/compiler/command_line_interface_tester.cc` | Remove stale `#if !defined(__CYGWIN__)` guards around stdout capture |
 | `src/google/protobuf/compiler/command_line_interface_unittest.cc` | Remove stale `#if !defined(__CYGWIN__)` guard in `PrintFreeFieldNumbers` test |
+| `upb/port/def.inc` | Use plain `setjmp`/`longjmp` on Cygwin -- Cygwin's `sigjmp_buf` is larger than `jmp_buf` (34 vs 32 longs); the `sigsetjmp` path overflows UPB's `jmp_buf`-sized buffers, corrupting `protoc-gen-upb_minitable` |
 | `src/README.md` | Cygwin build instructions |
 
 ### Upstream dependency
