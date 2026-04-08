@@ -59,8 +59,9 @@ static bool _upb_GeneratedRegistry_AddAllLinkedExtensions(
         continue;
       }
 
-      if (upb_ExtensionRegistry_Add(r, ext) !=
-          kUpb_ExtensionRegistryStatus_Ok) {
+      upb_ExtensionRegistryStatus status = upb_ExtensionRegistry_Add(r, ext);
+      if (status != kUpb_ExtensionRegistryStatus_Ok &&
+          status != kUpb_ExtensionRegistryStatus_DuplicateEntry) {
         return false;
       }
       current += sizeof(upb_MiniTableExtension);
