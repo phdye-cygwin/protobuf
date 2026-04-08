@@ -9,7 +9,11 @@ Copyright 2008 Google LLC
 
 This branch adds Cygwin support to Protocol Buffers v34.1 (C++ 7.34.1, released 2026-03-19).
 
-Protobuf does not officially support Cygwin. The three patches here are minimal fixes for PE/COFF platform differences -- weak symbol semantics and text-mode I/O -- that prevent protoc and the C++ runtime from functioning. They are intended as a stopgap until upstream support exists.
+Protobuf does not officially support Cygwin. Six patches fix PE/COFF platform differences -- weak symbol semantics, text-mode I/O, `jmp_buf` sizing, and linker constructor behavior -- that prevent protoc and the C++ runtime from functioning. Four regression tests guard against silent breakage. The patches are intended as a stopgap until upstream support exists.
+
+This port exists to support `grpcio` (Python gRPC bindings) on Cygwin. The dependency chain is:
+
+    psutil -> pypinfo -> grpcio -> protobuf -> abseil-cpp
 
 ### Prerequisites
 
@@ -45,7 +49,26 @@ Both `-D` flags in `CMAKE_CXX_FLAGS` must match the Abseil build:
 cmake --install . --prefix /path/to/prefix
 ```
 
+### Binary release
+
+Pre-built protoc, C++ runtime, and UPB libraries for Cygwin x86_64
+(GCC 13, Release mode) are available on the
+[Releases](https://github.com/phdye-cygwin/protobuf/releases) page.
+
+The [patched Abseil](https://github.com/phdye-cygwin/abseil-cpp/releases/tag/20250512.1-cygwin)
+must be installed first. Both tarballs install to `/usr/local`.
+
+```bash
+# Install Abseil (dependency)
+cd / && tar xzf abseil-cpp-20250512.1-cygwin-x86_64.tar.gz
+
+# Install Protobuf
+cd / && tar xzf protobuf-v34.1-cygwin-x86_64.tar.gz
+```
+
 ### Patch summary
+
+**Fixes** (6 files):
 
 | File | Purpose |
 |------|---------|
@@ -53,8 +76,25 @@ cmake --install . --prefix /path/to/prefix
 | `src/google/protobuf/compiler/plugin.cc` | Set binary mode on plugin stdin/stdout -- Cygwin defaults to text mode, corrupting protobuf wire data with `\r\n` translation |
 | `src/google/protobuf/compiler/command_line_interface_tester.cc` | Remove stale `#if !defined(__CYGWIN__)` guards around stdout capture |
 | `src/google/protobuf/compiler/command_line_interface_unittest.cc` | Remove stale `#if !defined(__CYGWIN__)` guard in `PrintFreeFieldNumbers` test |
-| `upb/port/def.inc` | Use plain `setjmp`/`longjmp` on Cygwin -- Cygwin's `sigjmp_buf` is larger than `jmp_buf` (34 vs 32 longs); the `sigsetjmp` path overflows UPB's `jmp_buf`-sized buffers, corrupting `protoc-gen-upb_minitable` |
+| `upb/port/def.inc` | Use plain `setjmp`/`longjmp` on Cygwin -- `sigjmp_buf` is larger than `jmp_buf` (34 vs 32 longs); the `sigsetjmp` path overflows UPB's buffers |
+| `upb/mini_table/generated_registry.c` | Tolerate duplicate extension registration -- per-TU constructors on PE/COFF register the same extensions multiple times |
+
+**Regression tests** (4 files):
+
+| File | Purpose |
+|------|---------|
+| `src/google/protobuf/port_test.cc` | Platform config, type sizes, binary round-trip |
+| `src/google/protobuf/descriptor_unittest.cc` | Distinct descriptor pointers (catches weak symbol collapse) |
+| `src/google/protobuf/wire_format_unittest.cc` | Wire data survives binary file I/O without CRLF corruption |
+| `src/google/protobuf/code_generator_unittest.cc` | Plugin wire data contains bytes that text-mode I/O would corrupt |
+
+**Build and docs** (3 files):
+
+| File | Purpose |
+|------|---------|
+| `src/google/protobuf/BUILD.bazel` | Add missing `:protobuf_lite` dep to `port_test` |
 | `src/README.md` | Cygwin build instructions |
+| `README.md` | Port documentation |
 
 ### Upstream dependency
 

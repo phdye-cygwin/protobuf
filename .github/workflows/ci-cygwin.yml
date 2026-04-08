@@ -1,0 +1,69 @@
+name: Cygwin
+
+on:
+  push:
+    branches: [main, ci/*]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cmake:
+    name: CMake Release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      ABSEIL_VERSION: "20250512.1-cygwin"
+      ABSEIL_TARBALL: "abseil-cpp-20250512.1-cygwin-x86_64.tar.gz"
+    steps:
+      - name: Configure git line endings
+        run: git config --global core.autocrlf input
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Cygwin
+        uses: cygwin/cygwin-install-action@bfb11f06b50864a101fa716f2b6ebfa3f6585089 # v6.1
+        with:
+          packages: >-
+            cmake
+            make
+            gcc-g++
+            ninja
+            curl
+            tar
+
+      - name: Download patched Abseil
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
+        run: |
+          cd /tmp
+          curl -fsSL -o "$ABSEIL_TARBALL" \
+            "https://github.com/phdye-cygwin/abseil-cpp/releases/download/$ABSEIL_VERSION/$ABSEIL_TARBALL"
+          tar xzf "$ABSEIL_TARBALL" -C /usr/local
+
+      - name: Configure
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
+        run: |
+          mkdir -p build && cd build
+          cmake "$(cygpath -u '${{ github.workspace }}')" \
+            -G Ninja \
+            -DCMAKE_PREFIX_PATH="/usr/local;/usr/local/lib/absl/vendor" \
+            -DCMAKE_CXX_STANDARD=17 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-D_GLIBCXX_USE_CXX11_ABI=1 -DGTEST_HAS_PTHREAD=1" \
+            -Dprotobuf_ABSL_PROVIDER=package \
+            -Dprotobuf_BUILD_TESTS=ON
+
+      - name: Build
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
+        run: cmake --build build --parallel 4
+
+      - name: Test
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
+        run: cd build && ctest --no-tests=error --output-on-failure --parallel 4 --timeout 120
