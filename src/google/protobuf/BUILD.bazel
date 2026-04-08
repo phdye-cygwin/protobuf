@@ -459,6 +459,7 @@ cc_test(
     srcs = ["port_test.cc"],
     deps = [
         ":port",
+        ":protobuf_lite",
         ":varint_shuffle",
         "@abseil-cpp//absl/base:config",
         "@abseil-cpp//absl/log:absl_check",
