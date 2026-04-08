@@ -572,7 +572,24 @@ Error, UINTPTR_MAX is undefined
 
 #define UPB_LINKARR_SENTINEL UPB_RETAIN __attribute__((weak, used))
 
-#if defined(__ELF__) || defined(__wasm__)
+#if defined(__CYGWIN__)
+
+// Cygwin uses GNU ld targeting PE/COFF.  The __start_/__stop_ section symbols
+// work the same as on ELF.  PE/COFF weak semantics differ from ELF (all
+// definitions are merged into one) but this is correct for the sentinel since
+// every instance is an identical zero-initialized array.
+#define UPB_LINKARR_APPEND(name) \
+  __attribute__((                \
+      section("linkarr_" #name))) UPB_LINKARR_ATTR UPB_NO_SANITIZE_ADDRESS
+#define UPB_LINKARR_DECLARE(name, type) \
+  extern type __start_linkarr_##name;   \
+  extern type __stop_linkarr_##name;    \
+  UPB_LINKARR_APPEND(name)              \
+  UPB_LINKARR_SENTINEL type UPB_linkarr_internal_empty_##name[1]
+#define UPB_LINKARR_START(name) (&__start_linkarr_##name)
+#define UPB_LINKARR_STOP(name) (&__stop_linkarr_##name)
+
+#elif defined(__ELF__) || defined(__wasm__)
 
 #define UPB_LINKARR_APPEND(name) \
   __attribute__((                \
@@ -652,7 +669,19 @@ Error, UINTPTR_MAX is undefined
 #define _UPB_CONSTRUCTOR_PLACEHOLDER(unique_name)
 #endif
 
-#if defined(__ELF__) || defined(__wasm__) || defined(__MACH__)
+#if defined(__CYGWIN__)
+// Cygwin PE/COFF: weak + constructor silently strips the constructor
+// attribute, so each TU needs a unique constructor name.  On ELF the weak
+// constructor runs once; here all run but only the first registers (the
+// generated code's `static bool finished` guard makes this safe — each
+// TU's function is static so it has its own guard, but the global
+// upb_generated_extension_list becomes non-NULL after the first, so only
+// one entry is added to the list per unique `finished` instance; the
+// duplicate entries all point to the same section range and the registry
+// handles duplicate extensions by returning Ok for already-registered ones).
+#define UPB_CONSTRUCTOR(name, unique_name)                                   \
+  __attribute__((constructor)) void UPB_PRIVATE(unique_name)(void)
+#elif defined(__ELF__) || defined(__wasm__) || defined(__MACH__)
 #define UPB_CONSTRUCTOR(name, unique_name)                                   \
   _UPB_CONSTRUCTOR_PLACEHOLDER(unique_name)                                  \
   __attribute__((weak, visibility("hidden"), constructor)) void UPB_PRIVATE( \
