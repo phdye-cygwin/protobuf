@@ -70,9 +70,16 @@ jobs:
       safe-checkout: ${{ needs.set-vars.outputs.checkout-sha }}
       continuous-prefix: ${{ needs.set-vars.outputs.continuous-prefix }}
 
+  cygwin:
+    name: Cygwin
+    needs: [set-vars]
+    uses: ./.github/workflows/test_cygwin.yml
+    with:
+      safe-checkout: ${{ needs.set-vars.outputs.checkout-sha }}
+
   all-blocking-tests:
     name: All Blocking Tests
-    needs: [set-vars, validate-yaml, cpp, upb]
+    needs: [set-vars, validate-yaml, cpp, upb, cygwin]
     runs-on: ubuntu-latest
     if: always()
     steps:

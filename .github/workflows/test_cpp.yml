@@ -29,9 +29,10 @@ jobs:
   linux:
     name: Linux Optimized
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout pending changes
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ inputs.safe-checkout || github.sha }}
       - name: Install Bazelisk
@@ -54,9 +55,10 @@ jobs:
             bazel: test //src/... --test_tag_filters=-conformance --build_tag_filters=-conformance
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     steps:
       - name: Checkout pending changes
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ inputs.safe-checkout || github.sha }}
       - name: Run tests
