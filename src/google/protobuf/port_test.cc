@@ -12,9 +12,11 @@
 
 #include <cassert>
 #include <cstdint>  // NOLINT
+#include <string>
 
 #include <gtest/gtest.h>
 #include "absl/base/config.h"
+#include "google/protobuf/arenastring.h"
 
 // Must be included last
 #include "google/protobuf/port_def.inc"
@@ -133,6 +135,35 @@ TEST(PortTest, PrefetchWorksWithValidOffsets) {
 }
 
 #endif  // defined(__clang__) && ABSL_HAVE_BUILTIN(__builtin_prefetch)
+
+// Verify PROTOBUF_ATTRIBUTE_WEAK is configured correctly per platform.
+// On Cygwin (PE/COFF), weak symbols collapse all definitions into one,
+// breaking per-type vtable dispatch. The macro must be disabled there.
+TEST(PortTest, WeakAttributePlatformConfiguration) {
+#if defined(__CYGWIN__)
+  // PROTOBUF_HAVE_ATTRIBUTE_WEAK gates weak symbol usage. On Cygwin
+  // it must be 0 because PE/COFF weak symbols have merge semantics
+  // that collapse distinct virtual function overrides into one.
+  EXPECT_EQ(PROTOBUF_HAVE_ATTRIBUTE_WEAK, 0)
+      << "Weak attributes must be disabled on Cygwin (PE/COFF)";
+#elif defined(__linux__)
+  // On Linux (ELF), weak symbols work correctly.
+  EXPECT_EQ(PROTOBUF_HAVE_ATTRIBUTE_WEAK, 1)
+      << "Weak attributes should be enabled on Linux (ELF)";
+#endif
+}
+
+// Verify ABI layout assumptions that affect wire format correctness.
+TEST(PortTest, CriticalTypeSizes) {
+  // ArenaStringPtr must be pointer-sized on all platforms.
+  EXPECT_EQ(sizeof(ArenaStringPtr), sizeof(void*));
+#ifdef __CYGWIN__
+  // Cygwin builds must use the SSO string ABI (CXX11_ABI=1).
+  // The COW ABI (sizeof=8) causes silent data corruption.
+  EXPECT_EQ(sizeof(std::string), 32u)
+      << "Cygwin build requires _GLIBCXX_USE_CXX11_ABI=1 (SSO strings)";
+#endif
+}
 
 }  // namespace internal
 }  // namespace protobuf
