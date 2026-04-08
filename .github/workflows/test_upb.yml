@@ -48,7 +48,7 @@ jobs:
         with:
           ref: ${{ inputs.safe-checkout || github.sha }}
       - name: Run tests
-        run: bazelisk test //upb/... //upb_generator/... --test_output=errors -//python:conformance_test -//upb/reflection:def_builder_test
+        run: bazelisk test //upb/... //upb_generator/... --test_output=errors -- -//python:conformance_test -//upb/reflection:def_builder_test
 
   macos:
     name: macOS
