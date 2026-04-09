@@ -1,0 +1,145 @@
+name: Release (Cygwin)
+
+on:
+  push:
+    tags: ['*-cygwin']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    name: Build and publish Cygwin x86_64
+    timeout-minutes: 90
+
+    steps:
+      - run: git config --global core.autocrlf input
+
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: cygwin/cygwin-install-action@bfb11f06b50864a101fa716f2b6ebfa3f6585089 # v6.1
+        with:
+          packages: |
+            gcc-g++
+            cmake
+            make
+            ninja
+            curl
+
+      - name: Build environment
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: |
+          echo "GCC:    $(g++ -dumpfullversion)"
+          echo "CMake:  $(cmake --version | head -1)"
+          echo "Cygwin: $(uname -r)"
+
+      - name: Download patched Abseil
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: |
+          abseil_ver="20250512.1-cygwin"
+          abseil_tar="abseil-cpp-${abseil_ver}-x86_64.tar.gz"
+          curl -fsSL -o "/tmp/$abseil_tar" \
+            "https://github.com/phdye-cygwin/abseil-cpp/releases/download/$abseil_ver/$abseil_tar"
+          tar xzf "/tmp/$abseil_tar" -C /
+
+      - name: Configure
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: >
+          cmake -S "$(cygpath -u '${{ github.workspace }}')" -B build -G Ninja
+          -DCMAKE_CXX_STANDARD=17
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_PREFIX_PATH="/usr/local;/usr/local/lib/absl/vendor"
+          -DCMAKE_CXX_FLAGS="-D_GLIBCXX_USE_CXX11_ABI=1 -DGTEST_HAS_PTHREAD=1"
+          -Dprotobuf_ABSL_PROVIDER=package
+          -Dprotobuf_BUILD_TESTS=ON
+
+      - name: Build
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: ninja -C build -j4
+
+      - name: Test
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: ctest --test-dir build --timeout 300 --output-on-failure --parallel 4
+
+      - name: Install
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: cmake --install build --prefix "$PWD/staging/usr/local"
+
+      - name: Create tarball and checksum
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          artifact="protobuf-${tag}-x86_64.tar.gz"
+          tar czf "$artifact" -C staging usr
+          sha256sum "$artifact" > checksums-sha256.txt
+          cat checksums-sha256.txt
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "ARTIFACT=$artifact" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:TAG
+          $artifact = $env:ARTIFACT
+          $version = $tag -replace '-cygwin$', ''
+          $gcc = & C:\cygwin\bin\bash.exe -c "g++ -dumpfullversion" 2>$null
+          $cmake = & C:\cygwin\bin\bash.exe -c "cmake --version" 2>$null | Select-Object -First 1
+          $cygwin = & C:\cygwin\bin\bash.exe -c "uname -r" 2>$null
+          $body = @"
+          Pre-built protoc compiler, C++ runtime, and UPB libraries for Cygwin x86_64.
+
+          **Build environment**: GCC $gcc, $cmake, Cygwin $cygwin, Release mode
+          **ABI**: ``-D_GLIBCXX_USE_CXX11_ABI=1`` (SSO strings, required for Abseil compatibility)
+          **Prefix**: ``/usr/local`` (does not conflict with system packages in ``/usr``)
+          **Requires**: [Abseil LTS 20250512.1 for Cygwin](https://github.com/phdye-cygwin/abseil-cpp/releases/tag/20250512.1-cygwin) installed at ``/usr/local``
+
+          ## Installation
+
+          Install the [patched Abseil](https://github.com/phdye-cygwin/abseil-cpp/releases/tag/20250512.1-cygwin) first, then extract this tarball at the filesystem root:
+
+          ``````bash
+          cd / && tar xzf $artifact
+          ``````
+
+          Verify checksum:
+
+          ``````bash
+          sha256sum -c checksums-sha256.txt
+          ``````
+
+          ## Contents
+
+          - ``protoc`` and UPB generators in ``/usr/local/bin/``
+          - Static libraries in ``/usr/local/lib/libprotobuf*.a``, ``/usr/local/lib/libupb*.a``
+          - Headers in ``/usr/local/include/google/protobuf/`` and ``/usr/local/include/upb/``
+          - CMake config in ``/usr/local/lib/cmake/protobuf/``
+
+          ## Usage
+
+          ``````cmake
+          list(APPEND CMAKE_PREFIX_PATH /usr/local)
+          find_package(protobuf REQUIRED)
+          ``````
+
+          ## Purpose
+
+          These binaries support the Cygwin port of grpcio (Python), which
+          depends on protobuf. The dependency chain is:
+
+              psutil -> pypinfo -> grpcio -> protobuf -> abseil-cpp
+
+          Source: [phdye-cygwin/protobuf](https://github.com/phdye-cygwin/protobuf),
+          branch ``cygwin/v34.1``.
+          "@
+          gh release create "$tag" `
+            --title "Protocol Buffers $version — Cygwin x86_64" `
+            --notes "$body" `
+            "$artifact" checksums-sha256.txt
+        shell: pwsh

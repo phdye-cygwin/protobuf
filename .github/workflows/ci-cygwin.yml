@@ -18,7 +18,7 @@ jobs:
   cmake:
     name: CMake Release
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       ABSEIL_VERSION: "20250512.1-cygwin"
       ABSEIL_TARBALL: "abseil-cpp-20250512.1-cygwin-x86_64.tar.gz"
@@ -45,7 +45,7 @@ jobs:
           cd /tmp
           curl -fsSL -o "$ABSEIL_TARBALL" \
             "https://github.com/phdye-cygwin/abseil-cpp/releases/download/$ABSEIL_VERSION/$ABSEIL_TARBALL"
-          tar xzf "$ABSEIL_TARBALL" -C /usr/local
+          tar xzf "$ABSEIL_TARBALL" -C /
 
       - name: Configure
         shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
