@@ -46,7 +46,7 @@ jobs:
           abseil_tar="abseil-cpp-${abseil_ver}-x86_64.tar.gz"
           curl -fsSL -o "/tmp/$abseil_tar" \
             "https://github.com/phdye-cygwin/abseil-cpp/releases/download/$abseil_ver/$abseil_tar"
-          tar xzf "/tmp/$abseil_tar" -C /usr/local
+          tar xzf "/tmp/$abseil_tar" -C /
 
       - name: Configure
         shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
