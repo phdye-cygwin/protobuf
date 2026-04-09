@@ -74,7 +74,7 @@ jobs:
           rc=${PIPESTATUS[0]}
           set -e
           if [ $rc -eq 0 ]; then exit 0; fi
-          unexpected=$(grep 'FAILED' ctest_output.txt | grep -cv 'full-test' || true)
+          unexpected=$(grep -E '^\s+[0-9]+ - .+ \(' ctest_output.txt | grep -cv 'full-test' || true)
           if [ "$unexpected" -eq 0 ]; then
             echo "Only known failure (full-test / death tests) — passing."
             exit 0
