@@ -33,14 +33,14 @@ jobs:
             curl
 
       - name: Build environment
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           echo "GCC:    $(g++ -dumpfullversion)"
           echo "CMake:  $(cmake --version | head -1)"
           echo "Cygwin: $(uname -r)"
 
       - name: Download patched Abseil
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           abseil_ver="20250512.1-cygwin"
           abseil_tar="abseil-cpp-${abseil_ver}-x86_64.tar.gz"
@@ -49,7 +49,7 @@ jobs:
           tar xzf "/tmp/$abseil_tar" -C /
 
       - name: Configure
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: >
           cmake -S "$(cygpath -u '${{ github.workspace }}')" -B build -G Ninja
           -DCMAKE_CXX_STANDARD=17
@@ -60,13 +60,13 @@ jobs:
           -Dprotobuf_BUILD_TESTS=ON
 
       - name: Build
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: ninja -C build -j4
 
       - name: Test
         # full-test aborts on Cygwin: death test forks leave stale temp dirs.
         # Allow that one known failure.
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr '{0}'
         run: |
           set +e
           ctest --test-dir build --timeout 300 --output-on-failure --parallel 4 2>&1 | tee ctest_output.txt
@@ -81,11 +81,11 @@ jobs:
           exit $rc
 
       - name: Install
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: cmake --install build --prefix "$PWD/staging/usr/local"
 
       - name: Create tarball and checksum
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -O igncr '{0}'
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           tag="${GITHUB_REF_NAME}"
           artifact="protobuf-${tag}-x86_64.tar.gz"
