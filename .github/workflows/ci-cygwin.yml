@@ -22,8 +22,12 @@ jobs:
     env:
       ABSEIL_VERSION: "20250512.1-cygwin"
       ABSEIL_TARBALL: "abseil-cpp-20250512.1-cygwin-x86_64.tar.gz"
+    defaults:
+      run:
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
     steps:
       - name: Configure git line endings
+        shell: bash
         run: git config --global core.autocrlf input
 
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -40,7 +44,6 @@ jobs:
             tar
 
       - name: Download patched Abseil
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           cd /tmp
           curl -fsSL -o "$ABSEIL_TARBALL" \
@@ -48,7 +51,6 @@ jobs:
           tar xzf "$ABSEIL_TARBALL" -C /
 
       - name: Configure
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           mkdir -p build && cd build
           cmake "$(cygpath -u '${{ github.workspace }}')" \
@@ -61,7 +63,6 @@ jobs:
             -Dprotobuf_BUILD_TESTS=ON
 
       - name: Build
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: cmake --build build --parallel 4
 
       - name: Test

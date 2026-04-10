@@ -13,7 +13,7 @@ Protobuf does not officially support Cygwin. Six patches fix PE/COFF platform di
 
 This port exists to support `grpcio` (Python gRPC bindings) on Cygwin. The dependency chain is:
 
-    psutil -> pypinfo -> grpcio -> protobuf -> abseil-cpp
+    psutil <- pypinfo <- grpcio <- protobuf <- abseil-cpp
 
 ### Prerequisites
 
@@ -76,7 +76,7 @@ cd / && tar xzf protobuf-v34.1-cygwin-x86_64.tar.gz
 | `src/google/protobuf/compiler/plugin.cc` | Set binary mode on plugin stdin/stdout -- Cygwin defaults to text mode, corrupting protobuf wire data with `\r\n` translation |
 | `src/google/protobuf/compiler/command_line_interface_tester.cc` | Remove stale `#if !defined(__CYGWIN__)` guards around stdout capture |
 | `src/google/protobuf/compiler/command_line_interface_unittest.cc` | Remove stale `#if !defined(__CYGWIN__)` guard in `PrintFreeFieldNumbers` test |
-| `upb/port/def.inc` | Use plain `setjmp`/`longjmp` on Cygwin -- `sigjmp_buf` is larger than `jmp_buf` (34 vs 32 longs); the `sigsetjmp` path overflows UPB's buffers |
+| `upb/port/def.inc` | Use plain `setjmp`/`longjmp` on Cygwin -- `sigjmp_buf` is larger than `jmp_buf` (34 vs 32 longs); the `sigsetjmp` path overflows UPB's buffers. Also defines PE/COFF-compatible linker array macros for UPB mini-table registration (`UPB_LINKER_SECTION`, constructor/destructor entry points) |
 | `upb/mini_table/generated_registry.c` | Tolerate duplicate extension registration -- per-TU constructors on PE/COFF register the same extensions multiple times |
 
 **Regression tests** (4 files):
@@ -106,8 +106,7 @@ Protobuf cannot build on Cygwin without the patched Abseil:
 
 ### Known limitations
 
-- **UPB plugin tests**: `protoc-gen-upb` occasionally crashes (SIGSEGV) when invoked by protoc during certain test scenarios. The protoc compiler and C++ runtime are unaffected.
-- **Subprocess tests**: A small number of tests that fork/exec child processes may hang on Cygwin and require timeout enforcement.
+- **Death tests**: The monolithic `full-test` binary aborts due to Cygwin's `fork()` implementation leaving stale temp directories. 1 test binary is affected; 745 non-death tests pass.
 - **Bazel**: Only CMake is supported. Bazel on Cygwin is not tested.
 
 ### Test results

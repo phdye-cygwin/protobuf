@@ -17,9 +17,13 @@ jobs:
     runs-on: windows-latest
     name: Build and publish Cygwin x86_64
     timeout-minutes: 90
+    defaults:
+      run:
+        shell: C:\cygwin\bin\bash.exe --noprofile --norc -o igncr -eo pipefail '{0}'
 
     steps:
-      - run: git config --global core.autocrlf input
+      - shell: bash
+        run: git config --global core.autocrlf input
 
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -33,14 +37,12 @@ jobs:
             curl
 
       - name: Build environment
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           echo "GCC:    $(g++ -dumpfullversion)"
           echo "CMake:  $(cmake --version | head -1)"
           echo "Cygwin: $(uname -r)"
 
       - name: Download patched Abseil
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           abseil_ver="20250512.1-cygwin"
           abseil_tar="abseil-cpp-${abseil_ver}-x86_64.tar.gz"
@@ -49,7 +51,6 @@ jobs:
           tar xzf "/tmp/$abseil_tar" -C /
 
       - name: Configure
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: >
           cmake -S "$(cygpath -u '${{ github.workspace }}')" -B build -G Ninja
           -DCMAKE_CXX_STANDARD=17
@@ -60,7 +61,6 @@ jobs:
           -Dprotobuf_BUILD_TESTS=ON
 
       - name: Build
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: ninja -C build -j4
 
       - name: Test
@@ -81,11 +81,9 @@ jobs:
           exit $rc
 
       - name: Install
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: cmake --install build --prefix "$PWD/staging/usr/local"
 
       - name: Create tarball and checksum
-        shell: C:\cygwin\bin\bash.exe --noprofile --norc -eo pipefail -o igncr '{0}'
         run: |
           tag="${GITHUB_REF_NAME}"
           artifact="protobuf-${tag}-x86_64.tar.gz"
